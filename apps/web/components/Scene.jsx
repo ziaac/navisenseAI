@@ -123,17 +123,27 @@ function Ocean() {
           varying float vH;
           varying float vDist;
           varying vec2 vPos;
-          float hash(vec2 q) { return fract(sin(dot(q, vec2(127.1, 311.7))) * 43758.5453); }
+          // precision-safe hash + smooth value noise (soft organic blobs)
+          float hash(vec2 p) {
+            p = fract(p * 0.3183099 + vec2(0.1, 0.7)) * 17.0;
+            return fract(p.x * p.y * (p.x + p.y));
+          }
+          float noise(vec2 x) {
+            vec2 i = floor(x), f = fract(x);
+            f = f * f * (3.0 - 2.0 * f);
+            return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x),
+                       mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
+          }
           void main() {
             // ocean blue-teal, lighter than before
             vec3 deep  = vec3(0.05, 0.24, 0.38);
             vec3 crest = vec3(0.18, 0.48, 0.60);
             vec3 col = mix(deep, crest, vH * 0.9 + 0.45);
-            // sparse white foam flecks on wave crests (visual only)
-            vec2 cell = floor(vPos * 0.55 + vec2(uTime * 0.25, -uTime * 0.18));
-            float n = hash(cell);
-            float foam = smoothstep(0.35, 0.6, vH) * smoothstep(0.86, 0.97, n);
-            col = mix(col, vec3(0.90, 0.95, 0.97), foam * 0.55);
+            // sparse soft foam wisps on wave crests (visual only)
+            vec2 q = mod(vPos, 512.0) * 0.7 + vec2(uTime * 0.22, -uTime * 0.16);
+            float n = noise(q) * 0.65 + noise(q * 2.7) * 0.35;
+            float foam = smoothstep(0.3, 0.6, vH) * smoothstep(0.62, 0.85, n);
+            col = mix(col, vec3(0.90, 0.95, 0.97), foam * 0.4);
             // atmospheric blend into the sky near the horizon
             vec3 horizon = vec3(0.66, 0.78, 0.85);
             col = mix(col, horizon, smoothstep(200.0, 1500.0, vDist));

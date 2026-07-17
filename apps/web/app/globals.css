@@ -30,8 +30,10 @@ html, body { height: 100%; background: #06121f; color: #e6f0f7; font-family: "Se
   flex-wrap: wrap;
 }
 .gauge {
-  background: rgba(10, 26, 42, 0.85); border: 1px solid #1e3a52; border-radius: 10px;
+  background: rgba(8, 21, 34, 0.45); border: 1px solid rgba(30, 58, 82, 0.55); border-radius: 10px;
   padding: 10px 16px; min-width: 110px; text-align: center;
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
 }
 .gauge .label { font-size: 10px; letter-spacing: 1.5px; color: #7fa3bd; text-transform: uppercase; }
 .gauge .value { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
