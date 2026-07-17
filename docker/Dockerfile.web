@@ -6,6 +6,10 @@ COPY apps/web/package.json apps/web/package-lock.json* ./
 COPY prisma ./prisma-schema
 RUN sed -i 's#"../../prisma/schema.prisma"#"./prisma-schema/schema.prisma"#' package.json && npm install
 COPY apps/web/ .
+# NEXT_PUBLIC_* vars are inlined into the client bundle at build time, so the
+# brain WebSocket URL must be present as a build ARG (not just a runtime env).
+ARG NEXT_PUBLIC_BRAIN_WS
+ENV NEXT_PUBLIC_BRAIN_WS=$NEXT_PUBLIC_BRAIN_WS
 RUN sed -i 's#"../../prisma/schema.prisma"#"./prisma-schema/schema.prisma"#' package.json \
     && npx prisma generate && npm run build
 
