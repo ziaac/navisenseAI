@@ -107,23 +107,33 @@ function Ocean() {
           uniform float uTime;
           varying float vH;
           varying float vDist;
+          varying vec2 vPos;
           void main() {
             vec3 p = position;
             p.z += sin(p.x * 0.08 + uTime * 1.2) * 0.35 + cos(p.y * 0.06 + uTime * 0.8) * 0.3;
             vH = p.z;
+            vPos = position.xy;
             vec4 mv = modelViewMatrix * vec4(p, 1.0);
             vDist = -mv.z;
             gl_Position = projectionMatrix * mv;
           }
         `}
         fragmentShader={`
+          uniform float uTime;
           varying float vH;
           varying float vDist;
+          varying vec2 vPos;
+          float hash(vec2 q) { return fract(sin(dot(q, vec2(127.1, 311.7))) * 43758.5453); }
           void main() {
             // ocean blue-teal, lighter than before
             vec3 deep  = vec3(0.05, 0.24, 0.38);
             vec3 crest = vec3(0.18, 0.48, 0.60);
             vec3 col = mix(deep, crest, vH * 0.9 + 0.45);
+            // sparse white foam flecks on wave crests (visual only)
+            vec2 cell = floor(vPos * 0.55 + vec2(uTime * 0.25, -uTime * 0.18));
+            float n = hash(cell);
+            float foam = smoothstep(0.35, 0.6, vH) * smoothstep(0.86, 0.97, n);
+            col = mix(col, vec3(0.90, 0.95, 0.97), foam * 0.55);
             // atmospheric blend into the sky near the horizon
             vec3 horizon = vec3(0.66, 0.78, 0.85);
             col = mix(col, horizon, smoothstep(200.0, 1500.0, vDist));
@@ -150,7 +160,7 @@ function Buoys() {
 
 export default function Scene({ stateRef }) {
   return (
-    <Canvas camera={{ position: [-19, 6.5, 0], fov: 55 }} style={{ position: "absolute", inset: 0 }}>
+    <Canvas camera={{ position: [-12.5, 3.6, 0], fov: 55 }} style={{ position: "absolute", inset: 0 }}>
       <Sky sunPosition={[100, 30, 100]} turbidity={6} />
       <Clouds material={THREE.MeshBasicMaterial}>
         <Cloud seed={2} segments={24} bounds={[70, 8, 45]} volume={38} position={[90, 55, -160]} color="#ffffff" opacity={0.5} speed={0.08} fade={60} />

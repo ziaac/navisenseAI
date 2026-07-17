@@ -3,6 +3,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import Instruments from "../components/Instruments";
 import Compass from "../components/Compass";
+import CommandBook from "../components/CommandBook";
 import { useNaviSocket } from "../lib/useNaviSocket";
 import { WavRecorder } from "../lib/recorder";
 
@@ -61,12 +62,22 @@ export default function Bridge() {
           </div>
         )}
 
+        <CommandBook onPick={(p) => setOrder(p)} />
+
         <div>
           <Instruments state={state} />
           <div style={{ height: 10 }} />
           <form className="orderbar" onSubmit={submit}>
-            <button type="button" className={`mic ${rec ? "rec" : ""}`} onClick={toggleMic} title="Hold your order, click to start/stop">
-              {rec ? "■" : "🎙"}
+            <button type="button" className={`mic ${rec ? "rec" : ""}`} onClick={toggleMic} title="Speak your order — click to start/stop">
+              {rec ? (
+                <svg viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="7" width="10" height="10" rx="2" /></svg>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="9" y="2.5" width="6" height="11" rx="3" fill="currentColor" stroke="none" />
+                  <path d="M5.5 11a6.5 6.5 0 0 0 13 0" />
+                  <path d="M12 17.5V21M8.5 21h7" />
+                </svg>
+              )}
             </button>
             <input
               value={order}
