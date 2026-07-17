@@ -13,16 +13,15 @@ html, body { height: 100%; background: #06121f; color: #e6f0f7; font-family: "Se
   display: inline-flex; align-items: center; gap: 8px;
   font-weight: 600; letter-spacing: 1.5px; font-size: 13px; color: #eaf4fb;
   padding: 8px 14px; border-radius: 10px;
-  background: rgba(6, 18, 31, 0.32); backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  background: rgba(3, 11, 19, 0.62); backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(120, 160, 190, 0.12);
 }
 .brand span { color: #4db8ff; }
 .conn {
   display: inline-flex; align-items: center; font-size: 12px; padding: 6px 12px;
-  border-radius: 10px; background: rgba(6, 18, 31, 0.32);
-  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  border-radius: 10px; background: rgba(3, 11, 19, 0.62);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(120, 160, 190, 0.12);
 }
 .conn.ok { color: #6fe3a1; } .conn.bad { color: #ff7b7b; }
 
@@ -40,7 +39,8 @@ html, body { height: 100%; background: #06121f; color: #e6f0f7; font-family: "Se
 .gauge .sub { font-size: 11px; color: #7fa3bd; }
 .gauge .sub.settling, .gauge .value.settling-text { color: #ffcf6b; }
 
-.compass { width: 96px; height: 96px; flex: 0 0 auto; }
+.compass-fixed { position: absolute; right: 16px; top: 62px; z-index: 11; }
+.compass { width: 112px; height: 112px; flex: 0 0 auto; filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4)); }
 .compass svg { width: 100%; height: 100%; display: block; }
 
 .console {

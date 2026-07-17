@@ -2,6 +2,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import Instruments from "../components/Instruments";
+import Compass from "../components/Compass";
 import { useNaviSocket } from "../lib/useNaviSocket";
 import { WavRecorder } from "../lib/recorder";
 
@@ -53,6 +54,12 @@ export default function Bridge() {
             <div className={`conn ${connected ? "ok" : "bad"}`}>{connected ? "● BRAIN ONLINE" : "○ CONNECTING…"}</div>
           </div>
         </div>
+
+        {state && (
+          <div className="compass-fixed">
+            <Compass heading={state.heading_deg} rot={state.yaw_rate_deg_s} />
+          </div>
+        )}
 
         <div>
           <Instruments state={state} />

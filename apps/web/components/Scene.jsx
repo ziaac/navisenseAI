@@ -1,6 +1,6 @@
 "use client";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { Environment, Sky, useGLTF } from "@react-three/drei";
+import { Environment, Sky, useGLTF, OrbitControls } from "@react-three/drei";
 import { Component, Suspense, useMemo, useRef } from "react";
 import * as THREE from "three";
 
@@ -63,19 +63,29 @@ function Ship({ stateRef }) {
   );
 }
 
-function FollowCamera({ stateRef }) {
-  useFrame(({ camera }) => {
+// Orbit + zoom controls that keep the (moving) ship at the centre. The user can
+// drag to rotate and scroll to zoom; the target auto-follows the ship's position.
+function CameraRig({ stateRef }) {
+  const controls = useRef();
+  useFrame(() => {
     const s = stateRef.current;
-    if (!s) return;
-    const x = s.pos[0] / 10, z = -s.pos[1] / 10, yaw = s.yaw_rad;
-    const dist = 28, height = 12;
-    camera.position.lerp(
-      new THREE.Vector3(x - Math.cos(yaw) * dist, height, z + Math.sin(yaw) * dist),
-      0.05
-    );
-    camera.lookAt(x, 0, z);
+    if (!s || !controls.current) return;
+    const x = s.pos[0] / 10, z = -s.pos[1] / 10;
+    controls.current.target.lerp(new THREE.Vector3(x, 1, z), 0.1);
+    controls.current.update();
   });
-  return null;
+  return (
+    <OrbitControls
+      ref={controls}
+      makeDefault
+      enablePan={false}
+      enableDamping
+      dampingFactor={0.08}
+      minDistance={4}
+      maxDistance={140}
+      maxPolarAngle={Math.PI / 2.05}
+    />
+  );
 }
 
 function Ocean() {
@@ -138,7 +148,7 @@ export default function Scene({ stateRef }) {
       <Ocean />
       <Buoys />
       <Ship stateRef={stateRef} />
-      <FollowCamera stateRef={stateRef} />
+      <CameraRig stateRef={stateRef} />
       <Environment preset="sunset" />
     </Canvas>
   );
