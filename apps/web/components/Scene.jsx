@@ -1,6 +1,6 @@
 "use client";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { Environment, Sky, useGLTF, OrbitControls } from "@react-three/drei";
+import { Environment, Sky, useGLTF, OrbitControls, Clouds, Cloud } from "@react-three/drei";
 import { Component, Suspense, useMemo, useRef } from "react";
 import * as THREE from "three";
 
@@ -106,19 +106,28 @@ function Ocean() {
         vertexShader={`
           uniform float uTime;
           varying float vH;
+          varying float vDist;
           void main() {
             vec3 p = position;
             p.z += sin(p.x * 0.08 + uTime * 1.2) * 0.35 + cos(p.y * 0.06 + uTime * 0.8) * 0.3;
             vH = p.z;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+            vec4 mv = modelViewMatrix * vec4(p, 1.0);
+            vDist = -mv.z;
+            gl_Position = projectionMatrix * mv;
           }
         `}
         fragmentShader={`
           varying float vH;
+          varying float vDist;
           void main() {
-            vec3 deep = vec3(0.02, 0.12, 0.22);
-            vec3 crest = vec3(0.1, 0.35, 0.5);
-            gl_FragColor = vec4(mix(deep, crest, vH * 0.9 + 0.4), 1.0);
+            // ocean blue-teal, lighter than before
+            vec3 deep  = vec3(0.05, 0.24, 0.38);
+            vec3 crest = vec3(0.18, 0.48, 0.60);
+            vec3 col = mix(deep, crest, vH * 0.9 + 0.45);
+            // atmospheric blend into the sky near the horizon
+            vec3 horizon = vec3(0.66, 0.78, 0.85);
+            col = mix(col, horizon, smoothstep(200.0, 1500.0, vDist));
+            gl_FragColor = vec4(col, 1.0);
           }
         `}
       />
@@ -141,8 +150,14 @@ function Buoys() {
 
 export default function Scene({ stateRef }) {
   return (
-    <Canvas camera={{ position: [-30, 14, 0], fov: 55 }} style={{ position: "absolute", inset: 0 }}>
+    <Canvas camera={{ position: [-19, 6.5, 0], fov: 55 }} style={{ position: "absolute", inset: 0 }}>
       <Sky sunPosition={[100, 30, 100]} turbidity={6} />
+      <Clouds material={THREE.MeshBasicMaterial}>
+        <Cloud seed={2} segments={24} bounds={[70, 8, 45]} volume={38} position={[90, 55, -160]} color="#ffffff" opacity={0.5} speed={0.08} fade={60} />
+        <Cloud seed={7} segments={22} bounds={[60, 7, 40]} volume={32} position={[-150, 62, -70]} color="#f4f8fb" opacity={0.42} speed={0.06} fade={60} />
+        <Cloud seed={13} segments={20} bounds={[55, 6, 40]} volume={30} position={[30, 58, 170]} color="#ffffff" opacity={0.45} speed={0.07} fade={60} />
+        <Cloud seed={21} segments={18} bounds={[45, 6, 35]} volume={26} position={[190, 60, 40]} color="#f4f8fb" opacity={0.38} speed={0.05} fade={60} />
+      </Clouds>
       <ambientLight intensity={0.6} />
       <directionalLight position={[80, 60, 40]} intensity={1.4} />
       <Ocean />
