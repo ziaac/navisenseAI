@@ -8,7 +8,9 @@ RUN sed -i 's#"../../prisma/schema.prisma"#"./prisma-schema/schema.prisma"#' pac
 COPY apps/web/ .
 # NEXT_PUBLIC_* vars are inlined into the client bundle at build time, so the
 # brain WebSocket URL must be present as a build ARG (not just a runtime env).
-ARG NEXT_PUBLIC_BRAIN_WS
+# Defaults to the production brain endpoint so the build works even when the
+# platform does not forward env vars as build args; override with --build-arg.
+ARG NEXT_PUBLIC_BRAIN_WS=wss://navisense-api.eziedutech.dev/session
 ENV NEXT_PUBLIC_BRAIN_WS=$NEXT_PUBLIC_BRAIN_WS
 RUN sed -i 's#"../../prisma/schema.prisma"#"./prisma-schema/schema.prisma"#' package.json \
     && npx prisma generate && npm run build
