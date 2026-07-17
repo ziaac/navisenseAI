@@ -1,0 +1,49 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; background: #06121f; color: #e6f0f7; font-family: "Segoe UI", system-ui, sans-serif; overflow: hidden; }
+
+.hud {
+  position: absolute; inset: 0; pointer-events: none;
+  display: flex; flex-direction: column; justify-content: space-between;
+  padding: 16px; z-index: 10;
+}
+.hud > * { pointer-events: auto; }
+
+.topbar { display: flex; justify-content: space-between; align-items: flex-start; }
+.brand { font-weight: 700; letter-spacing: 2px; font-size: 14px; opacity: 0.9; }
+.brand span { color: #4db8ff; }
+.conn { font-size: 12px; padding: 4px 10px; border-radius: 12px; background: #132a3f; }
+.conn.ok { color: #6fe3a1; } .conn.bad { color: #ff7b7b; }
+
+.instruments {
+  display: flex; gap: 12px; align-items: flex-end; justify-content: center;
+  flex-wrap: wrap;
+}
+.gauge {
+  background: rgba(10, 26, 42, 0.85); border: 1px solid #1e3a52; border-radius: 10px;
+  padding: 10px 16px; min-width: 110px; text-align: center;
+}
+.gauge .label { font-size: 10px; letter-spacing: 1.5px; color: #7fa3bd; text-transform: uppercase; }
+.gauge .value { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.gauge .sub { font-size: 11px; color: #7fa3bd; }
+
+.console {
+  position: absolute; left: 16px; bottom: 110px; width: 360px; max-height: 40vh;
+  overflow-y: auto; display: flex; flex-direction: column; gap: 6px; z-index: 10;
+}
+.msg { background: rgba(10, 26, 42, 0.9); border-left: 3px solid #4db8ff; border-radius: 6px; padding: 8px 10px; font-size: 13px; }
+.msg.valid { border-left-color: #6fe3a1; }
+.msg.invalid { border-left-color: #ff7b7b; }
+.msg .tag { font-size: 10px; letter-spacing: 1px; color: #7fa3bd; text-transform: uppercase; }
+
+.orderbar { display: flex; gap: 8px; justify-content: center; align-items: center; }
+.orderbar input {
+  width: 420px; padding: 12px 14px; border-radius: 10px; border: 1px solid #1e3a52;
+  background: rgba(10, 26, 42, 0.92); color: #e6f0f7; font-size: 15px; outline: none;
+}
+.orderbar button {
+  padding: 12px 18px; border-radius: 10px; border: none; cursor: pointer;
+  background: #1769aa; color: white; font-size: 15px; font-weight: 600;
+}
+.orderbar button.mic { background: #7a2f2f; width: 52px; }
+.orderbar button.mic.rec { background: #d33; animation: pulse 1s infinite; }
+@keyframes pulse { 50% { opacity: 0.6; } }

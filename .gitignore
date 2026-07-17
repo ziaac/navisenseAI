@@ -1,0 +1,15 @@
+.claude/
+CLAUDE.md
+.ssh/
+*.pem
+node_modules/
+.next/
+.venv/
+venv/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store

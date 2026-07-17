@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CADET
+  INSTRUCTOR
+  ADMIN
+}
+
+model User {
+  id        String    @id @default(cuid())
+  email     String    @unique
+  name      String
+  role      Role      @default(CADET)
+  sessions  Session[]
+  createdAt DateTime  @default(now())
+}
+
+model Module {
+  id      String   @id @default(cuid())
+  title   String
+  order   Int      @default(0)
+  phrases Phrase[]
+}
+
+model Phrase {
+  id             String    @id @default(cuid())
+  module         Module    @relation(fields: [moduleId], references: [id])
+  moduleId       String
+  smcpText       String    // canonical SMCP phrase, e.g. "Hard-a-port"
+  category       String    // helm | engine | combined
+  expectedAction Json      // {"rudder_angle_deg": -35, "engine_thrust_pct": null}
+  attempts       Attempt[]
+}
+
+model Session {
+  id        String      @id @default(cuid())
+  user      User        @relation(fields: [userId], references: [id])
+  userId    String
+  scenario  String      @default("channel_navigation")
+  startedAt DateTime    @default(now())
+  endedAt   DateTime?
+  score     Float?
+  attempts  Attempt[]
+  telemetry Telemetry[]
+}
+
+model Attempt {
+  id         String   @id @default(cuid())
+  session    Session  @relation(fields: [sessionId], references: [id])
+  sessionId  String
+  phrase     Phrase?  @relation(fields: [phraseId], references: [id])
+  phraseId   String?
+  transcript String
+  valid      Boolean
+  feedback   String
+  action     Json     // physics_action executed
+  sttMs      Int      @default(0)
+  llmMs      Int      @default(0)
+  createdAt  DateTime @default(now())
+}
+
+model Telemetry {
+  id        String   @id @default(cuid())
+  session   Session  @relation(fields: [sessionId], references: [id])
+  sessionId String
+  t         Float
+  state     Json
+  createdAt DateTime @default(now())
+
+  @@index([sessionId, t])
+}

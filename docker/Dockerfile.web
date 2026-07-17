@@ -1,0 +1,18 @@
+# NaviSense AI web app (Next.js + Prisma)
+FROM node:20-slim AS builder
+WORKDIR /app
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+COPY apps/web/package.json apps/web/package-lock.json* ./
+COPY prisma ./prisma-schema
+RUN sed -i 's#"../../prisma/schema.prisma"#"./prisma-schema/schema.prisma"#' package.json && npm install
+COPY apps/web/ .
+RUN sed -i 's#"../../prisma/schema.prisma"#"./prisma-schema/schema.prisma"#' package.json \
+    && npx prisma generate && npm run build
+
+FROM node:20-slim
+WORKDIR /app
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+ENV NODE_ENV=production
+COPY --from=builder /app ./
+EXPOSE 3000
+CMD ["npm", "start"]

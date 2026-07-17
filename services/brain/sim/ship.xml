@@ -1,0 +1,42 @@
+<mujoco model="navisense_ship">
+  <option timestep="0.02" gravity="0 0 0" integrator="RK4"/>
+  <!-- gravity off: buoyancy handled by keeping hull on z=0 plane via hydro model -->
+
+  <visual>
+    <headlight ambient="0.4 0.4 0.4"/>
+  </visual>
+
+  <asset>
+    <texture name="water" type="2d" builtin="flat" rgb1="0.05 0.25 0.4" width="256" height="256"/>
+    <material name="water_mat" texture="water" reflectance="0.3"/>
+    <material name="hull_mat" rgba="0.7 0.2 0.15 1"/>
+    <material name="bridge_mat" rgba="0.9 0.9 0.9 1"/>
+    <material name="buoy_red" rgba="0.9 0.1 0.1 1"/>
+    <material name="buoy_green" rgba="0.1 0.8 0.1 1"/>
+  </asset>
+
+  <worldbody>
+    <!-- Water plane (visual reference only) -->
+    <geom name="sea" type="plane" size="500 500 0.1" material="water_mat" contype="0" conaffinity="0"/>
+
+    <!-- Ship: single free-floating rigid body.
+         Dimensions approx. a 120m coaster scaled 1:1 (units = meters).
+         Hydrodynamic forces are applied externally each step (hydro.py). -->
+    <body name="ship" pos="0 0 0">
+      <freejoint name="ship_free"/>
+      <!-- mass ~8.0e6 kg; inertia approximated as solid box 120 x 18 x 10 m -->
+      <inertial pos="0 0 0" mass="8.0e6" diaginertia="2.8e8 1.03e10 1.05e10"/>
+      <geom name="hull" type="box" size="60 9 5" material="hull_mat" contype="1" conaffinity="1"/>
+      <geom name="bridge" type="box" size="6 8 6" pos="-45 0 11" material="bridge_mat" contype="0" conaffinity="0"/>
+      <site name="stern" pos="-60 0 0" size="0.5"/>
+      <site name="bow" pos="60 0 0" size="0.5"/>
+    </body>
+
+    <!-- Channel buoys: port (red) / starboard (green), simple berthing scenario -->
+    <body name="buoy_p1" pos="300 60 0"><geom type="cylinder" size="2 3" material="buoy_red" contype="1" conaffinity="1"/></body>
+    <body name="buoy_s1" pos="300 -60 0"><geom type="cylinder" size="2 3" material="buoy_green" contype="1" conaffinity="1"/></body>
+    <body name="buoy_p2" pos="600 50 0"><geom type="cylinder" size="2 3" material="buoy_red" contype="1" conaffinity="1"/></body>
+    <body name="buoy_s2" pos="600 -50 0"><geom type="cylinder" size="2 3" material="buoy_green" contype="1" conaffinity="1"/></body>
+    <body name="berth" pos="900 -80 0"><geom type="box" size="80 10 3" rgba="0.4 0.4 0.4 1" contype="1" conaffinity="1"/></body>
+  </worldbody>
+</mujoco>
