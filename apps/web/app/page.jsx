@@ -12,6 +12,7 @@ const Scene = dynamic(() => import("../components/Scene"), { ssr: false });
 export default function Bridge() {
   const { connected, state, messages, sendText, sendAudio, reset } = useNaviSocket();
   const stateRef = useRef(null);
+  const viewRef = useRef(270); // camera view bearing (deg), written by the 3D scene
   const [order, setOrder] = useState("");
   const [rec, setRec] = useState(false);
   const recorder = useRef(null);
@@ -43,7 +44,7 @@ export default function Bridge() {
 
   return (
     <main style={{ position: "relative", width: "100vw", height: "100vh" }}>
-      <Scene stateRef={stateRef} />
+      <Scene stateRef={stateRef} viewRef={viewRef} />
 
       <div className="hud">
         <div className="topbar">
@@ -58,7 +59,7 @@ export default function Bridge() {
 
         {state && (
           <div className="compass-fixed">
-            <Compass heading={state.heading_deg} rot={state.yaw_rate_deg_s} />
+            <Compass heading={state.heading_deg} rot={state.yaw_rate_deg_s} viewRef={viewRef} />
           </div>
         )}
 

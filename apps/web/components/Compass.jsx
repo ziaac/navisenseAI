@@ -2,7 +2,10 @@
 
 // Dynamic heading indicator: fixed cardinal ring, arrow rotates to the ship's
 // heading (0°=N, 90°=E). Centre shows the numeric heading and rate of turn.
-export default function Compass({ heading = 0, rot = 0 }) {
+// viewRef (optional) carries the camera's view bearing, drawn as a small
+// eye marker on the ring so you can tell which way you are looking.
+export default function Compass({ heading = 0, rot = 0, viewRef }) {
+  const viewBearing = viewRef ? viewRef.current : null;
   const ticks = [];
   for (let a = 0; a < 360; a += 30) {
     const major = a % 90 === 0;
@@ -26,6 +29,13 @@ export default function Compass({ heading = 0, rot = 0 }) {
         <text x="76" y="53.5" textAnchor="middle" fontSize="9" fill="#9fbdd6">E</text>
         <text x="50" y="80" textAnchor="middle" fontSize="9" fill="#9fbdd6">S</text>
         <text x="24" y="53.5" textAnchor="middle" fontSize="9" fill="#9fbdd6">W</text>
+
+        {/* camera view marker on the ring */}
+        {viewBearing != null && (
+          <g transform={`rotate(${viewBearing} 50 50)`} opacity="0.9">
+            <polygon points="50,1.5 46.8,8 53.2,8" fill="#ffd166" />
+          </g>
+        )}
 
         {/* heading arrow (bow blue, stern dark red) */}
         <g transform={`rotate(${heading} 50 50)`}>

@@ -65,9 +65,16 @@ function Ship({ stateRef }) {
 
 // Orbit + zoom controls that keep the (moving) ship at the centre. The user can
 // drag to rotate and scroll to zoom; the target auto-follows the ship's position.
-function CameraRig({ stateRef }) {
+// Publishes the camera's view bearing (nav convention) into viewRef for the compass.
+function CameraRig({ stateRef, viewRef }) {
   const controls = useRef();
-  useFrame(() => {
+  const dir = useMemo(() => new THREE.Vector3(), []);
+  useFrame(({ camera }) => {
+    if (viewRef) {
+      camera.getWorldDirection(dir);
+      // scene: +x = East, -z = North  ->  bearing 0..360
+      viewRef.current = (Math.atan2(dir.x, -dir.z) * 180 / Math.PI + 360) % 360;
+    }
     const s = stateRef.current;
     if (!s || !controls.current) return;
     const x = s.pos[0] / 10, z = -s.pos[1] / 10;
@@ -168,7 +175,7 @@ function Buoys() {
   ));
 }
 
-export default function Scene({ stateRef }) {
+export default function Scene({ stateRef, viewRef }) {
   return (
     <Canvas camera={{ position: [-12.5, 3.6, 0], fov: 55 }} style={{ position: "absolute", inset: 0 }}>
       <Sky sunPosition={[100, 30, 100]} turbidity={6} />
@@ -183,7 +190,7 @@ export default function Scene({ stateRef }) {
       <Ocean />
       <Buoys />
       <Ship stateRef={stateRef} />
-      <CameraRig stateRef={stateRef} />
+      <CameraRig stateRef={stateRef} viewRef={viewRef} />
       <Environment preset="sunset" />
     </Canvas>
   );
