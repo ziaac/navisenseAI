@@ -79,16 +79,20 @@ class SMCPAgent:
             "temperature": 0.0,
             "max_tokens": 300,
         }
-        # vLLM guided decoding; harmlessly ignored -> fallback below
-        payload["response_format"] = {
-            "type": "json_schema",
-            "json_schema": {"name": "smcp_eval", "schema": RESPONSE_SCHEMA},
-        }
+        # Structured-output dialects differ per server; try from strictest to
+        # loosest until one is accepted (vLLM/OpenAI -> llama.cpp -> plain).
+        response_formats = [
+            {"type": "json_schema", "json_schema": {"name": "smcp_eval", "schema": RESPONSE_SCHEMA}},
+            {"type": "json_object", "schema": RESPONSE_SCHEMA},
+            {"type": "json_object"},
+        ]
         try:
-            r = await self.client.post("chat/completions", json=payload)
-            if r.status_code in (400, 422):  # server may not support json_schema
-                payload["response_format"] = {"type": "json_object"}
+            r = None
+            for fmt in response_formats:
+                payload["response_format"] = fmt
                 r = await self.client.post("chat/completions", json=payload)
+                if r.status_code < 400:
+                    break
             r.raise_for_status()
             content = r.json()["choices"][0]["message"]["content"]
             result = json.loads(_strip_fences(content))
