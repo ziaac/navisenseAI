@@ -12,6 +12,10 @@ COPY apps/web/ .
 # platform does not forward env vars as build args; override with --build-arg.
 ARG NEXT_PUBLIC_BRAIN_WS=wss://navisense-api.eziedutech.dev/session
 ENV NEXT_PUBLIC_BRAIN_WS=$NEXT_PUBLIC_BRAIN_WS
+# AI engine endpoint (Cloudflare tunnel to the AMD GPU instance); the UI's
+# AI MODE auto-falls back to mock when this endpoint is offline.
+ARG NEXT_PUBLIC_BRAIN_WS_AI=wss://navisense-gpu.eziedutech.dev/session
+ENV NEXT_PUBLIC_BRAIN_WS_AI=$NEXT_PUBLIC_BRAIN_WS_AI
 RUN sed -i 's#"../../prisma/schema.prisma"#"./prisma-schema/schema.prisma"#' package.json \
     && npx prisma generate && npm run build
 
