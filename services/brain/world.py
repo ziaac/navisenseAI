@@ -25,11 +25,11 @@ BUOYS = [
 
 OBSTACLES = [
     # volcanic island north of the channel — shallow water hazard
-    {"id": "island", "type": "island", "x": 1600, "y": 620, "radius": 450,
-     "heading_deg": 0, "scale": 0.35, "label": "Island / shallow water"},
-    # anchored tanker south of the channel entrance
-    {"id": "tanker", "type": "tanker", "x": 700, "y": -180, "radius": 90,
-     "heading_deg": 60, "scale": 1.0, "label": "Anchored tanker"},
+    {"id": "island", "type": "island", "x": 1600, "y": 700, "radius": 450,
+     "heading_deg": 0, "scale": 0.5, "label": "Island / shallow water"},
+    # anchored container ship south of the channel entrance
+    {"id": "cargo", "type": "cargoship", "x": 700, "y": -180, "radius": 90,
+     "heading_deg": 60, "scale": 1.0, "label": "Anchored container ship"},
 ]
 
 # crossing fishing vessel: shuttles across the channel ahead of the ship

@@ -1,10 +1,13 @@
 "use client";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Environment, Sky, useGLTF, OrbitControls, Clouds, Cloud } from "@react-three/drei";
-import { Component, Suspense, useMemo, useRef } from "react";
+import { Component, Suspense, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 
-const SHIP_GLB = "/ship.glb"; // place converted asset in apps/web/public/
+const SHIP_GLB = "/tanker.glb"; // player vessel (oil tanker)
+// Adjust if a swapped player model's bow is not along +X (sim bow at yaw 0).
+// The tanker model's bow points along -X, hence the half-turn.
+const SHIP_MODEL_YAW = Math.PI;
 
 class ModelBoundary extends Component {
   state = { failed: false };
@@ -22,7 +25,11 @@ function ShipModel() {
     c.traverse((o) => { o.castShadow = true; });
     return c;
   }, [scene]);
-  return <primitive object={s} />;
+  return (
+    <group rotation={[0, SHIP_MODEL_YAW, 0]}>
+      <primitive object={s} />
+    </group>
+  );
 }
 
 function FallbackHull() {
@@ -67,9 +74,17 @@ function Ship({ stateRef }) {
 // Orbit + zoom controls that keep the (moving) ship at the centre. The user can
 // drag to rotate and scroll to zoom; the target auto-follows the ship's position.
 // Publishes the camera's view bearing (nav convention) into viewRef for the compass.
-function CameraRig({ stateRef, viewRef }) {
+function CameraRig({ stateRef, viewRef, panMode }) {
   const controls = useRef();
   const dir = useMemo(() => new THREE.Vector3(), []);
+  // hand tool: left-drag pans over the water instead of orbiting, and the
+  // camera stops chasing the ship until pan mode is switched off again
+  useEffect(() => {
+    const c = controls.current;
+    if (!c) return;
+    c.mouseButtons.LEFT = panMode ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE;
+    c.touches.ONE = panMode ? THREE.TOUCH.PAN : THREE.TOUCH.ROTATE;
+  }, [panMode]);
   useFrame(({ camera }) => {
     if (viewRef) {
       camera.getWorldDirection(dir);
@@ -78,15 +93,18 @@ function CameraRig({ stateRef, viewRef }) {
     }
     const s = stateRef.current;
     if (!s || !controls.current) return;
-    const x = s.pos[0] / 10, z = -s.pos[1] / 10;
-    controls.current.target.lerp(new THREE.Vector3(x, 1, z), 0.1);
+    if (!panMode) {
+      const x = s.pos[0] / 10, z = -s.pos[1] / 10;
+      controls.current.target.lerp(new THREE.Vector3(x, 1, z), 0.1);
+    }
     controls.current.update();
   });
   return (
     <OrbitControls
       ref={controls}
       makeDefault
-      enablePan={false}
+      enablePan={panMode}
+      screenSpacePanning={false}
       enableDamping
       dampingFactor={0.08}
       minDistance={4}
@@ -116,12 +134,20 @@ function Ocean() {
           varying float vH;
           varying float vDist;
           varying vec2 vPos;
+          varying vec3 vWorld;
           void main() {
             vec3 p = position;
-            p.z += sin(p.x * 0.08 + uTime * 1.2) * 0.35 + cos(p.y * 0.06 + uTime * 0.8) * 0.3;
-            vH = p.z;
+            // three overlapping wave trains at different angles + small chop
+            float h = sin(p.x * 0.08 + uTime * 1.2) * 0.30
+                    + cos(p.y * 0.06 + uTime * 0.8) * 0.26
+                    + sin((p.x * 0.71 + p.y * 0.70) * 0.045 + uTime * 0.55) * 0.22
+                    + sin((p.x - p.y) * 0.21 + uTime * 1.9) * 0.06;
+            p.z += h;
+            vH = h;
             vPos = position.xy;
-            vec4 mv = modelViewMatrix * vec4(p, 1.0);
+            vec4 wp = modelMatrix * vec4(p, 1.0);
+            vWorld = wp.xyz;
+            vec4 mv = viewMatrix * wp;
             vDist = -mv.z;
             gl_Position = projectionMatrix * mv;
           }
@@ -131,6 +157,7 @@ function Ocean() {
           varying float vH;
           varying float vDist;
           varying vec2 vPos;
+          varying vec3 vWorld;
           // precision-safe hash + smooth value noise (soft organic blobs)
           float hash(vec2 p) {
             p = fract(p * 0.3183099 + vec2(0.1, 0.7)) * 17.0;
@@ -143,15 +170,39 @@ function Ocean() {
                        mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
           }
           void main() {
-            // ocean blue-teal, lighter than before
-            vec3 deep  = vec3(0.05, 0.24, 0.38);
-            vec3 crest = vec3(0.18, 0.48, 0.60);
-            vec3 col = mix(deep, crest, vH * 0.9 + 0.45);
+            // per-pixel surface normal from screen-space derivatives + ripple detail
+            vec3 dx = dFdx(vWorld), dy = dFdy(vWorld);
+            vec3 N = normalize(cross(dx, dy));
+            if (N.y < 0.0) N = -N;
+            vec2 rq = mod(vPos, 256.0) * 1.6 + vec2(uTime * 0.6, uTime * 0.45);
+            float r1 = noise(rq) - 0.5, r2 = noise(rq * 2.3 + 17.0) - 0.5;
+            N = normalize(N + vec3(r1 * 0.22, 0.0, r2 * 0.22));
+
+            vec3 V = normalize(cameraPosition - vWorld);
+            vec3 L = normalize(vec3(0.55, 0.42, 0.28)); // matches key light
+            vec3 skyTint = vec3(0.63, 0.76, 0.85);
+
+            // water body colour: deep blue base, teal in wave crests
+            vec3 deep  = vec3(0.02, 0.16, 0.30);
+            vec3 crest = vec3(0.10, 0.42, 0.52);
+            vec3 col = mix(deep, crest, clamp(vH * 0.9 + 0.5, 0.0, 1.0));
+
+            // fresnel: grazing angles reflect the sky
+            float fres = pow(1.0 - max(dot(N, V), 0.0), 3.0);
+            col = mix(col, skyTint, fres * 0.55);
+
+            // sun glint: tight specular + broader sheen along the light path
+            vec3 H = normalize(L + V);
+            float ndh = max(dot(N, H), 0.0);
+            float glint = pow(ndh, 240.0) * 1.2 + pow(ndh, 48.0) * 0.18;
+            col += vec3(1.0, 0.95, 0.82) * glint;
+
             // sparse soft foam wisps on wave crests (visual only)
             vec2 q = mod(vPos, 512.0) * 0.7 + vec2(uTime * 0.22, -uTime * 0.16);
             float n = noise(q) * 0.65 + noise(q * 2.7) * 0.35;
-            float foam = smoothstep(0.3, 0.6, vH) * smoothstep(0.62, 0.85, n);
+            float foam = smoothstep(0.25, 0.55, vH) * smoothstep(0.62, 0.85, n);
             col = mix(col, vec3(0.90, 0.95, 0.97), foam * 0.4);
+
             // atmospheric blend into the sky near the horizon (far only, or
             // nearby objects look like they float on sky-coloured water)
             vec3 horizon = vec3(0.66, 0.78, 0.85);
@@ -193,9 +244,30 @@ function Buoys({ world }) {
   ));
 }
 
+const OBSTACLE_MODELS = {
+  island: "/island.glb",
+  cargoship: "/ship.glb",
+  smallship: "/smallship.glb",
+  tanker: "/tanker.glb",
+};
+
 function ObstacleModel({ url, scale = 1 }) {
   const { scene } = useGLTF(url);
-  const s = useMemo(() => scene.clone(), [scene]);
+  const s = useMemo(() => {
+    const c = scene.clone();
+    // some assets ship with very high metalness and read almost black on
+    // open water — soften so they pick up sun and sky light
+    c.traverse((o) => {
+      if (o.isMesh && o.material) {
+        if (o.material.metalness !== undefined && o.material.metalness > 0.3) {
+          o.material = o.material.clone();
+          o.material.metalness = 0.25;
+        }
+        o.material.envMapIntensity = 1.8;
+      }
+    });
+    return c;
+  }, [scene]);
   return <primitive object={s} scale={scale} />;
 }
 
@@ -204,14 +276,13 @@ function Obstacles({ world }) {
   return world.obstacles.map((ob) => (
     <group
       key={ob.id}
-      // islands sink deep so the photogrammetry sea-skirt tile stays underwater
-      // and only the volcano cone emerges
-      position={[M(ob.x), ob.type === "island" ? -16 : 0, -M(ob.y)]}
+      // islands sink slightly so their baked sea-skirt stays under the waves
+      position={[M(ob.x), ob.type === "island" ? -3.5 : 0, -M(ob.y)]}
       rotation={[0, yawFromHeading(ob.heading_deg || 0), 0]}
     >
       <ModelBoundary fallback={null}>
         <Suspense fallback={null}>
-          <ObstacleModel url={`/${ob.type}.glb`} scale={ob.scale ?? 1} />
+          <ObstacleModel url={OBSTACLE_MODELS[ob.type] ?? `/${ob.type}.glb`} scale={ob.scale ?? 1} />
         </Suspense>
       </ModelBoundary>
     </group>
@@ -238,9 +309,9 @@ function Traffic({ stateRef }) {
   );
 }
 
-export default function Scene({ stateRef, viewRef, world }) {
+export default function Scene({ stateRef, viewRef, world, panMode }) {
   return (
-    <Canvas camera={{ position: [-12.5, 3.6, 0], fov: 55 }} style={{ position: "absolute", inset: 0 }}>
+    <Canvas camera={{ position: [-26, 7, 0], fov: 55 }} style={{ position: "absolute", inset: 0 }}>
       <Sky sunPosition={[100, 30, 100]} turbidity={6} />
       <Clouds material={THREE.MeshBasicMaterial}>
         <Cloud seed={2} segments={24} bounds={[70, 8, 45]} volume={38} position={[90, 55, -160]} color="#ffffff" opacity={0.5} speed={0.08} fade={60} />
@@ -255,7 +326,7 @@ export default function Scene({ stateRef, viewRef, world }) {
       <Obstacles world={world} />
       <Traffic stateRef={stateRef} />
       <Ship stateRef={stateRef} />
-      <CameraRig stateRef={stateRef} viewRef={viewRef} />
+      <CameraRig stateRef={stateRef} viewRef={viewRef} panMode={panMode} />
       <Environment preset="sunset" />
     </Canvas>
   );
