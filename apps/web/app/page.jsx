@@ -1,26 +1,39 @@
 "use client";
 import dynamic from "next/dynamic";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Instruments from "../components/Instruments";
 import Compass from "../components/Compass";
 import CommandBook from "../components/CommandBook";
 import Advisor from "../components/Advisor";
 import InfoPanel from "../components/InfoPanel";
-import { useNaviSocket } from "../lib/useNaviSocket";
+import { useNaviSocket, resolveUrls } from "../lib/useNaviSocket";
 import { WavRecorder } from "../lib/recorder";
 
 const Scene = dynamic(() => import("../components/Scene"), { ssr: false });
 
+const shortHost = (url) => {
+  try { return new URL(url.replace(/^ws/, "http")).host; } catch { return url; }
+};
+
 export default function Bridge() {
-  const { connected, state, messages, world, advisory, sendText, sendAudio, reset } = useNaviSocket();
+  const [mode, setMode] = useState("mock"); // "mock" | "ai"
+  const [aiConfigured, setAiConfigured] = useState(false);
+  const [aiFellBack, setAiFellBack] = useState(false);
+  const onAiFail = useCallback(() => { setMode("mock"); setAiFellBack(true); }, []);
+  const { connected, state, messages, world, advisory, activeUrl, sendText, sendAudio, reset } =
+    useNaviSocket(mode, onAiFail);
+
   const stateRef = useRef(null);
   const viewRef = useRef(270); // camera view bearing (deg), written by the 3D scene
   const [order, setOrder] = useState("");
   const [rec, setRec] = useState(false);
   const [panMode, setPanMode] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [bookOpen, setBookOpen] = useState(false);
   const recorder = useRef(null);
   const consoleRef = useRef(null);
 
+  useEffect(() => { setAiConfigured(!!resolveUrls().ai); }, []);
   useEffect(() => { stateRef.current = state; }, [state]);
   useEffect(() => {
     consoleRef.current?.scrollTo(0, consoleRef.current.scrollHeight);
@@ -50,13 +63,35 @@ export default function Bridge() {
       <Scene stateRef={stateRef} viewRef={viewRef} world={world} panMode={panMode} />
 
       <div className="hud">
+        {/* ---------- header ---------- */}
         <div className="topbar">
-          <div className="brand">NAVISENSE <span>AI</span> — SMCP BRIDGE SIMULATOR</div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={reset} style={{ fontSize: 12, padding: "4px 10px", borderRadius: 12, border: "none", cursor: "pointer" }}>
-              Reset
-            </button>
-            <div className={`conn ${connected ? "ok" : "bad"}`}>{connected ? "● BRAIN ONLINE" : "○ CONNECTING…"}</div>
+          <div className="topbar-left">
+            <div className="brand">
+              <img src="/logo.png" alt="NaviSense AI logo" className="brand-logo" />
+              NAVISENSE <span>AI</span>
+            </div>
+            <div className="mode-switch" title={aiFellBack ? "AI endpoint unreachable — dropped back to Mock" : ""}>
+              <button
+                className={mode === "mock" ? "on" : ""}
+                onClick={() => setMode("mock")}
+              >MOCK MODE</button>
+              <button
+                className={mode === "ai" ? "on" : ""}
+                disabled={!aiConfigured}
+                title={aiConfigured ? "Local LLM + Whisper on AMD GPU" : "AI endpoint not configured — open with ?ai=wss://…"}
+                onClick={() => { setAiFellBack(false); setMode("ai"); }}
+              >AI MODE</button>
+            </div>
+          </div>
+
+          <div className={`conn-detail ${connected ? "ok" : "bad"}`}>
+            <div className="row">
+              {connected ? "●" : "○"} {connected ? "ONLINE" : "OFFLINE"} · {mode === "ai" ? "AI ENGINE" : "MOCK ENGINE"}
+            </div>
+            <div className="sub">
+              {connected ? shortHost(activeUrl) : "reconnecting…"}
+              {state ? ` · sim ${state.t.toFixed(0)}s` : ""}
+            </div>
           </div>
         </div>
 
@@ -66,27 +101,41 @@ export default function Bridge() {
           </div>
         )}
 
-        <InfoPanel />
-        <button
-          className={`hand-toggle ${panMode ? "on" : ""}`}
-          onClick={() => setPanMode(!panMode)}
-          title={panMode ? "Hand tool ON — drag to pan the view; click to return to orbit & follow" : "Hand tool — drag to pan the view"}
-          aria-label="Toggle hand tool"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M18 11V6a2 2 0 0 0-4 0v5" />
-            <path d="M14 10V4a2 2 0 0 0-4 0v2" />
-            <path d="M10 10.5V6a2 2 0 0 0-4 0v8" />
-            <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" />
-          </svg>
-        </button>
+        {/* ---------- left rail ---------- */}
+        <div className="left-rail">
+          <button className="rail-btn" onClick={() => setInfoOpen(true)} title="About this application" aria-label="About">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <circle cx="12" cy="12" r="9.2" /><path d="M12 11v5.2" /><circle cx="12" cy="7.8" r="0.4" fill="currentColor" />
+            </svg>
+          </button>
+          <button className={`rail-btn ${bookOpen ? "on" : ""}`} onClick={() => setBookOpen(!bookOpen)} title="SMCP phrase book" aria-label="Phrase book">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+              <path d="M9 7h7M9 11h7" />
+            </svg>
+          </button>
+          <button className={`rail-btn ${panMode ? "on" : ""}`} onClick={() => setPanMode(!panMode)}
+            title={panMode ? "Hand tool ON — drag to pan; click to return to orbit & follow" : "Hand tool — drag to pan the view"} aria-label="Hand tool">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 11V6a2 2 0 0 0-4 0v5" /><path d="M14 10V4a2 2 0 0 0-4 0v2" /><path d="M10 10.5V6a2 2 0 0 0-4 0v8" />
+              <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" />
+            </svg>
+          </button>
+          <button className="rail-btn" onClick={reset} title="Reset simulation" aria-label="Reset">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 12a9 9 0 1 0 3-6.7" /><path d="M3 4v5h5" />
+            </svg>
+          </button>
+        </div>
 
-        <CommandBook onPick={(p) => setOrder(p)} />
         <Advisor advisory={advisory} onUse={(p) => setOrder(p)} />
+        <InfoPanel open={infoOpen} onClose={() => setInfoOpen(false)} />
+        <CommandBook open={bookOpen} onClose={() => setBookOpen(false)} onPick={(p) => { setOrder(p); }} />
 
-        <div>
+        {/* ---------- helm console (bottom centre) ---------- */}
+        <div className="helm">
           <Instruments state={state} />
-          <div style={{ height: 10 }} />
           <form className="orderbar" onSubmit={submit}>
             <button type="button" className={`mic ${rec ? "rec" : ""}`} onClick={toggleMic} title="Speak your order — click to start/stop">
               {rec ? (
@@ -109,6 +158,7 @@ export default function Bridge() {
         </div>
       </div>
 
+      {/* ---------- order log (bottom left, newest at bottom) ---------- */}
       <div className="console" ref={consoleRef}>
         {messages.map((m, i) => {
           if (m.type === "transcript")
@@ -123,6 +173,7 @@ export default function Bridge() {
               <div className={`msg ${m.smcp_valid ? "valid" : "invalid"}`} key={i}>
                 <div className="tag">
                   {m.smcp_valid ? "✓ Valid SMCP" : "✗ Not SMCP"} · {m.latency_ms} ms
+                  {m.engine === "llm" ? " · AI" : ""}
                 </div>
                 {m.linguistic_feedback}
                 {m.smcp_valid && (

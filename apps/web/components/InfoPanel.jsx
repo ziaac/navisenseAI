@@ -1,29 +1,14 @@
 "use client";
-import { useState } from "react";
 
-// Info button (right edge, above the hand tool) opening a translucent
-// "what is this app" popup.
-export default function InfoPanel() {
-  const [open, setOpen] = useState(false);
+// Translucent "what is this app" popup; the toggle button lives in the
+// left rail (page.jsx).
+export default function InfoPanel({ open, onClose }) {
   return (
     <>
-      <button
-        className="info-toggle"
-        onClick={() => setOpen(true)}
-        title="About this application"
-        aria-label="About this application"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-          <circle cx="12" cy="12" r="9.2" />
-          <path d="M12 11v5.2" />
-          <circle cx="12" cy="7.8" r="0.4" fill="currentColor" />
-        </svg>
-      </button>
-
       {open && (
-        <div className="info-backdrop" onClick={() => setOpen(false)}>
+        <div className="info-backdrop" onClick={onClose}>
           <div className="info-popup" onClick={(e) => e.stopPropagation()}>
-            <button className="info-close" onClick={() => setOpen(false)} aria-label="Close">✕</button>
+            <button className="info-close" onClick={onClose} aria-label="Close">✕</button>
             <div className="info-title">NAVISENSE <span>AI</span></div>
             <div className="info-sub">Embodied SMCP Training Environment</div>
             <div className="info-body">
