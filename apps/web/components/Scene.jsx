@@ -152,9 +152,10 @@ function Ocean() {
             float n = noise(q) * 0.65 + noise(q * 2.7) * 0.35;
             float foam = smoothstep(0.3, 0.6, vH) * smoothstep(0.62, 0.85, n);
             col = mix(col, vec3(0.90, 0.95, 0.97), foam * 0.4);
-            // atmospheric blend into the sky near the horizon
+            // atmospheric blend into the sky near the horizon (far only, or
+            // nearby objects look like they float on sky-coloured water)
             vec3 horizon = vec3(0.66, 0.78, 0.85);
-            col = mix(col, horizon, smoothstep(200.0, 1500.0, vDist));
+            col = mix(col, horizon, smoothstep(700.0, 1900.0, vDist));
             gl_FragColor = vec4(col, 1.0);
           }
         `}
@@ -203,7 +204,9 @@ function Obstacles({ world }) {
   return world.obstacles.map((ob) => (
     <group
       key={ob.id}
-      position={[M(ob.x), 0, -M(ob.y)]}
+      // islands sink deep so the photogrammetry sea-skirt tile stays underwater
+      // and only the volcano cone emerges
+      position={[M(ob.x), ob.type === "island" ? -16 : 0, -M(ob.y)]}
       rotation={[0, yawFromHeading(ob.heading_deg || 0), 0]}
     >
       <ModelBoundary fallback={null}>
