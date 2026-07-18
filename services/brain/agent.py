@@ -53,8 +53,10 @@ Respond ONLY with JSON matching the required schema."""
 
 class SMCPAgent:
     def __init__(self):
+        # trailing slash matters: httpx drops the base path ("/v1") when the
+        # request path starts with "/", so join relative instead
         self.client = httpx.AsyncClient(
-            base_url=config.LLM_BASE_URL,
+            base_url=config.LLM_BASE_URL.rstrip("/") + "/",
             headers={"Authorization": f"Bearer {config.LLM_API_KEY}"},
             timeout=30.0,
             trust_env=False,  # local endpoint; ignore system proxy settings
@@ -83,10 +85,10 @@ class SMCPAgent:
             "json_schema": {"name": "smcp_eval", "schema": RESPONSE_SCHEMA},
         }
         try:
-            r = await self.client.post("/chat/completions", json=payload)
-            if r.status_code == 400:  # server may not support json_schema
+            r = await self.client.post("chat/completions", json=payload)
+            if r.status_code in (400, 422):  # server may not support json_schema
                 payload["response_format"] = {"type": "json_object"}
-                r = await self.client.post("/chat/completions", json=payload)
+                r = await self.client.post("chat/completions", json=payload)
             r.raise_for_status()
             content = r.json()["choices"][0]["message"]["content"]
             result = json.loads(_strip_fences(content))
