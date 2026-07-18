@@ -10,7 +10,8 @@ class ModelBoundary extends Component {
   state = { failed: false };
   static getDerivedStateFromError() { return { failed: true }; }
   render() {
-    return this.state.failed ? <FallbackHull /> : this.props.children;
+    if (!this.state.failed) return this.props.children;
+    return this.props.fallback !== undefined ? this.props.fallback : <FallbackHull />;
   }
 }
 
@@ -162,20 +163,79 @@ function Ocean() {
   );
 }
 
-function Buoys() {
-  const buoys = [
-    { p: [30, 6], c: "#d32f2f" }, { p: [30, -6], c: "#2fbf4f" },
-    { p: [60, 5], c: "#d32f2f" }, { p: [60, -5], c: "#2fbf4f" },
-  ];
-  return buoys.map((b, i) => (
-    <mesh key={i} position={[b.p[0], 0.6, -b.p[1]]}>
+// Sim metres -> scene units (1:10); scene x = sim x, scene z = -sim y.
+const M = (v) => v / 10;
+const yawFromHeading = (deg) => THREE.MathUtils.degToRad(90 - deg);
+
+function BuoyFallback({ color }) {
+  return (
+    <mesh position={[0, 0.6, 0]}>
       <cylinderGeometry args={[0.4, 0.5, 1.4]} />
-      <meshStandardMaterial color={b.c} />
+      <meshStandardMaterial color={color === "red" ? "#d32f2f" : "#2fbf4f"} />
     </mesh>
+  );
+}
+
+function Buoys({ world }) {
+  const buoys = world?.buoys ?? [
+    { id: "d1", x: 300, y: 60, color: "red" }, { id: "d2", x: 300, y: -60, color: "green" },
+    { id: "d3", x: 600, y: 50, color: "red" }, { id: "d4", x: 600, y: -50, color: "green" },
+  ];
+  return buoys.map((b) => (
+    <group key={b.id} position={[M(b.x), 0, -M(b.y)]}>
+      <ModelBoundary fallback={<BuoyFallback color={b.color} />}>
+        <Suspense fallback={<BuoyFallback color={b.color} />}>
+          <ObstacleModel url={b.color === "red" ? "/redbuoy.glb" : "/greenbuoy.glb"} scale={0.14} />
+        </Suspense>
+      </ModelBoundary>
+    </group>
   ));
 }
 
-export default function Scene({ stateRef, viewRef }) {
+function ObstacleModel({ url, scale = 1 }) {
+  const { scene } = useGLTF(url);
+  const s = useMemo(() => scene.clone(), [scene]);
+  return <primitive object={s} scale={scale} />;
+}
+
+function Obstacles({ world }) {
+  if (!world?.obstacles) return null;
+  return world.obstacles.map((ob) => (
+    <group
+      key={ob.id}
+      position={[M(ob.x), 0, -M(ob.y)]}
+      rotation={[0, yawFromHeading(ob.heading_deg || 0), 0]}
+    >
+      <ModelBoundary fallback={null}>
+        <Suspense fallback={null}>
+          <ObstacleModel url={`/${ob.type}.glb`} scale={ob.scale ?? 1} />
+        </Suspense>
+      </ModelBoundary>
+    </group>
+  ));
+}
+
+// Moving traffic — position comes with every state frame, applied without re-render.
+function Traffic({ stateRef }) {
+  const group = useRef();
+  useFrame(() => {
+    const tr = stateRef.current?.traffic?.[0];
+    if (!tr || !group.current) return;
+    group.current.position.set(M(tr.x), 0, -M(tr.y));
+    group.current.rotation.y = yawFromHeading(tr.heading_deg);
+  });
+  return (
+    <group ref={group} position={[M(500), 0, -M(-350)]}>
+      <ModelBoundary fallback={null}>
+        <Suspense fallback={null}>
+          <ObstacleModel url="/smallship.glb" />
+        </Suspense>
+      </ModelBoundary>
+    </group>
+  );
+}
+
+export default function Scene({ stateRef, viewRef, world }) {
   return (
     <Canvas camera={{ position: [-12.5, 3.6, 0], fov: 55 }} style={{ position: "absolute", inset: 0 }}>
       <Sky sunPosition={[100, 30, 100]} turbidity={6} />
@@ -188,7 +248,9 @@ export default function Scene({ stateRef, viewRef }) {
       <ambientLight intensity={0.6} />
       <directionalLight position={[80, 60, 40]} intensity={1.4} />
       <Ocean />
-      <Buoys />
+      <Buoys world={world} />
+      <Obstacles world={world} />
+      <Traffic stateRef={stateRef} />
       <Ship stateRef={stateRef} />
       <CameraRig stateRef={stateRef} viewRef={viewRef} />
       <Environment preset="sunset" />

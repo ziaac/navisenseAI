@@ -125,3 +125,29 @@ html, body { height: 100%; background: #06121f; color: #e6f0f7; font-family: "Se
 }
 .chip:hover { background: rgba(30, 62, 90, 0.85); border-color: #4db8ff; }
 .book-note { font-size: 11px; color: #7fa3bd; margin-top: 16px; line-height: 1.5; }
+
+/* ---------- nav advisor ---------- */
+.advisor {
+  position: absolute; left: 16px; top: 62px; width: 270px; z-index: 10;
+  background: rgba(6, 16, 27, 0.62); border: 1px solid rgba(120, 160, 190, 0.16);
+  border-radius: 10px; padding: 10px 12px;
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.advisor-title { font-size: 10px; letter-spacing: 1.5px; color: #7fa3bd; margin-bottom: 8px; }
+.advisor-obj { display: flex; align-items: center; gap: 7px; font-size: 12px; padding: 3px 0; }
+.advisor-obj .dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
+.advisor-obj.risk-high .dot { background: #ff7b7b; box-shadow: 0 0 6px #ff7b7b; }
+.advisor-obj.risk-watch .dot { background: #ffcf6b; }
+.advisor-obj .obj-label { flex: 1; }
+.advisor-obj .obj-meta { color: #7fa3bd; font-size: 11px; font-variant-numeric: tabular-nums; }
+.advisor-rec {
+  margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(120, 160, 190, 0.14);
+}
+.rec-reason { font-size: 11.5px; color: #b9d2e4; line-height: 1.45; }
+.rec-row { display: flex; align-items: center; justify-content: space-between; margin-top: 7px; gap: 8px; }
+.rec-order { font-size: 13.5px; font-weight: 700; color: #ffd166; }
+.rec-use {
+  border: 1px solid rgba(255, 209, 102, 0.45); background: rgba(255, 209, 102, 0.12);
+  color: #ffd166; border-radius: 8px; padding: 4px 12px; font-size: 12px; cursor: pointer;
+}
+.rec-use:hover { background: rgba(255, 209, 102, 0.25); }

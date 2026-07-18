@@ -4,13 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import Instruments from "../components/Instruments";
 import Compass from "../components/Compass";
 import CommandBook from "../components/CommandBook";
+import Advisor from "../components/Advisor";
 import { useNaviSocket } from "../lib/useNaviSocket";
 import { WavRecorder } from "../lib/recorder";
 
 const Scene = dynamic(() => import("../components/Scene"), { ssr: false });
 
 export default function Bridge() {
-  const { connected, state, messages, sendText, sendAudio, reset } = useNaviSocket();
+  const { connected, state, messages, world, advisory, sendText, sendAudio, reset } = useNaviSocket();
   const stateRef = useRef(null);
   const viewRef = useRef(270); // camera view bearing (deg), written by the 3D scene
   const [order, setOrder] = useState("");
@@ -44,7 +45,7 @@ export default function Bridge() {
 
   return (
     <main style={{ position: "relative", width: "100vw", height: "100vh" }}>
-      <Scene stateRef={stateRef} viewRef={viewRef} />
+      <Scene stateRef={stateRef} viewRef={viewRef} world={world} />
 
       <div className="hud">
         <div className="topbar">
@@ -64,6 +65,7 @@ export default function Bridge() {
         )}
 
         <CommandBook onPick={(p) => setOrder(p)} />
+        <Advisor advisory={advisory} onUse={(p) => setOrder(p)} />
 
         <div>
           <Instruments state={state} />

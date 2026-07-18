@@ -8,6 +8,8 @@ export function useNaviSocket() {
   const [connected, setConnected] = useState(false);
   const [state, setState] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [world, setWorld] = useState(null);
+  const [advisory, setAdvisory] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -23,6 +25,8 @@ export function useNaviSocket() {
       ws.onmessage = (ev) => {
         const msg = JSON.parse(ev.data);
         if (msg.type === "state") setState(msg);
+        else if (msg.type === "world") setWorld(msg);
+        else if (msg.type === "advisory") setAdvisory(msg);
         else setMessages((m) => [...m.slice(-19), msg]);
       };
     }
@@ -45,5 +49,5 @@ export function useNaviSocket() {
     wsRef.current?.send(JSON.stringify({ type: "reset" }));
   }, []);
 
-  return { connected, state, messages, sendText, sendAudio, reset };
+  return { connected, state, messages, world, advisory, sendText, sendAudio, reset };
 }

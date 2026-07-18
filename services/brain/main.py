@@ -25,6 +25,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 import config
+import world
 from agent import SMCPAgent
 from sim.loop import SimLoop
 
@@ -111,11 +112,20 @@ async def _log_attempt(transcript: str, result: dict, latency_ms: int) -> None:
 @app.websocket("/session")
 async def session(ws: WebSocket):
     await ws.accept()
+    await ws.send_json({"type": "world", "buoys": world.BUOYS, "obstacles": world.OBSTACLES})
 
     async def stream_state():
         period = 1.0 / config.STATE_STREAM_HZ
+        advisory_every = 2.0
+        next_advisory = 0.0
         while True:
-            await ws.send_json({"type": "state", **sim.get_state()})
+            st = sim.get_state()
+            st["traffic"] = world.traffic_state(st["t"])
+            await ws.send_json({"type": "state", **st})
+            # second clause resyncs after a sim reset (t jumps back to 0)
+            if st["t"] >= next_advisory or next_advisory - st["t"] > advisory_every:
+                next_advisory = st["t"] + advisory_every
+                await ws.send_json(world.advise(st))
             await asyncio.sleep(period)
 
     stream_task = asyncio.create_task(stream_state())
