@@ -27,7 +27,9 @@ export default function Bridge() {
   const viewRef = useRef(270); // camera view bearing (deg), written by the 3D scene
   const [order, setOrder] = useState("");
   const [rec, setRec] = useState(false);
+  const [sttBusy, setSttBusy] = useState(false);
   const [panMode, setPanMode] = useState(false);
+  const [resetTick, setResetTick] = useState(0);
   const [infoOpen, setInfoOpen] = useState(false);
   const [bookOpen, setBookOpen] = useState(false);
   const recorder = useRef(null);
@@ -37,6 +39,11 @@ export default function Bridge() {
   useEffect(() => { stateRef.current = state; }, [state]);
   useEffect(() => {
     consoleRef.current?.scrollTo(0, consoleRef.current.scrollHeight);
+    // voice pipeline finished: evaluation arrived, or STT heard nothing
+    const last = messages[messages.length - 1];
+    if (last && (last.type === "evaluation" || (last.type === "transcript" && !last.text))) {
+      setSttBusy(false);
+    }
   }, [messages]);
 
   const submit = (e) => {
@@ -47,12 +54,16 @@ export default function Bridge() {
   };
 
   const toggleMic = async () => {
+    if (sttBusy) return; // previous order still being transcribed/validated
     if (!rec) {
       recorder.current = new WavRecorder();
       await recorder.current.start();
       setRec(true);
     } else {
       setRec(false);
+      setSttBusy(true);
+      // safety: never leave the mic locked if the server stalls
+      setTimeout(() => setSttBusy(false), 45000);
       const wavB64 = await recorder.current.stop();
       sendAudio(wavB64);
     }
@@ -60,7 +71,7 @@ export default function Bridge() {
 
   return (
     <main style={{ position: "relative", width: "100vw", height: "100vh" }}>
-      <Scene stateRef={stateRef} viewRef={viewRef} world={world} panMode={panMode} />
+      <Scene stateRef={stateRef} viewRef={viewRef} world={world} panMode={panMode} resetTick={resetTick} />
 
       <div className="hud">
         {/* ---------- header ---------- */}
@@ -122,7 +133,11 @@ export default function Bridge() {
               <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" />
             </svg>
           </button>
-          <button className="rail-btn" onClick={reset} title="Reset simulation" aria-label="Reset">
+          <button
+            className="rail-btn"
+            onClick={() => { reset(); setPanMode(false); setResetTick((t) => t + 1); }}
+            title="Reset simulation" aria-label="Reset"
+          >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 12a9 9 0 1 0 3-6.7" /><path d="M3 4v5h5" />
             </svg>
@@ -137,8 +152,16 @@ export default function Bridge() {
         <div className="helm">
           <Instruments state={state} />
           <form className="orderbar" onSubmit={submit}>
-            <button type="button" className={`mic ${rec ? "rec" : ""}`} onClick={toggleMic} title="Speak your order — click to start/stop">
-              {rec ? (
+            <button
+              type="button"
+              className={`mic ${rec ? "rec" : ""} ${sttBusy ? "busy" : ""}`}
+              onClick={toggleMic}
+              disabled={sttBusy}
+              title={sttBusy ? "Processing your order…" : rec ? "Recording — click to stop & send" : "Speak your order — click to start"}
+            >
+              {sttBusy ? (
+                <span className="mic-spinner" />
+              ) : rec ? (
                 <svg viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="7" width="10" height="10" rx="2" /></svg>
               ) : (
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
@@ -151,9 +174,9 @@ export default function Bridge() {
             <input
               value={order}
               onChange={(e) => setOrder(e.target.value)}
-              placeholder='Type an SMCP order… e.g. "Hard-a-port, ahead dead slow"'
+              placeholder={sttBusy ? "Processing your voice order…" : rec ? "Listening… click the mic again to send" : 'Type an SMCP order… e.g. "Hard-a-port, ahead dead slow"'}
             />
-            <button type="submit">Execute</button>
+            <button type="submit" disabled={sttBusy}>Execute</button>
           </form>
         </div>
       </div>

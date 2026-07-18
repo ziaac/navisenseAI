@@ -134,6 +134,14 @@ html, body { height: 100%; background: #06121f; color: #e6f0f7; font-family: "Se
   animation: pulse 1s infinite;
 }
 @keyframes pulse { 50% { opacity: 0.6; } }
+.orderbar button.mic.busy { border-color: #ffd166; cursor: wait; }
+.orderbar button:disabled { opacity: 0.75; cursor: wait; }
+.mic-spinner {
+  width: 24px; height: 24px; border-radius: 50%;
+  border: 3px solid rgba(255, 209, 102, 0.25); border-top-color: #ffd166;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* ---------- left rail ---------- */
 .left-rail {

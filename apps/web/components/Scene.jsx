@@ -77,9 +77,18 @@ function Ship({ stateRef }) {
 // Orbit + zoom controls that keep the (moving) ship at the centre. The user can
 // drag to rotate and scroll to zoom; the target auto-follows the ship's position.
 // Publishes the camera's view bearing (nav convention) into viewRef for the compass.
-function CameraRig({ stateRef, viewRef, panMode }) {
+function CameraRig({ stateRef, viewRef, panMode, resetTick }) {
   const controls = useRef();
   const dir = useMemo(() => new THREE.Vector3(), []);
+  // snap back to the default stern view when the sim is reset, otherwise the
+  // camera stays where the ship USED to be and the reset looks broken
+  useEffect(() => {
+    const c = controls.current;
+    if (!c || !resetTick) return;
+    c.object.position.set(-13.5, 6.5, 0);
+    c.target.set(0, 1, 0);
+    c.update();
+  }, [resetTick]);
   // hand tool: left-drag pans over the water instead of orbiting, and the
   // camera stops chasing the ship until pan mode is switched off again
   useEffect(() => {
@@ -329,7 +338,7 @@ function AssetLoader() {
   );
 }
 
-export default function Scene({ stateRef, viewRef, world, panMode }) {
+export default function Scene({ stateRef, viewRef, world, panMode, resetTick }) {
   return (
     <>
     <AssetLoader />
@@ -348,7 +357,7 @@ export default function Scene({ stateRef, viewRef, world, panMode }) {
       <Obstacles world={world} />
       <Traffic stateRef={stateRef} />
       <Ship stateRef={stateRef} />
-      <CameraRig stateRef={stateRef} viewRef={viewRef} panMode={panMode} />
+      <CameraRig stateRef={stateRef} viewRef={viewRef} panMode={panMode} resetTick={resetTick} />
       <Environment preset="sunset" />
     </Canvas>
     </>
