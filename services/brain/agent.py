@@ -116,6 +116,16 @@ class SMCPAgent:
         pa["rudder_angle_deg"] = max(-35.0, min(35.0, float(pa.get("rudder_angle_deg", current_rudder))))
         pa["engine_thrust_pct"] = max(-100.0, min(100.0, float(pa.get("engine_thrust_pct", current_thrust))))
         result["physics_action"] = pa
+        # Deterministic cross-check: standard phrases parse exactly, so take
+        # the actuation numbers from the rule parser (LLMs occasionally flip
+        # signs); the LLM stays the linguistic judge and coach.
+        if result.get("smcp_valid"):
+            import mock_agent
+
+            ref = mock_agent.evaluate(transcript, current_rudder, current_thrust)
+            if ref["smcp_valid"]:
+                result["physics_action"] = ref["physics_action"]
+        result["engine"] = "llm"
         return result
 
 
