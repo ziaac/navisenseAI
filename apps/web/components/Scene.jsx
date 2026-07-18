@@ -5,9 +5,12 @@ import { Component, Suspense, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 
 const SHIP_GLB = "/tanker.glb"; // player vessel (oil tanker)
-// Adjust if a swapped player model's bow is not along +X (sim bow at yaw 0).
-// The tanker model's bow points along -X, hence the half-turn.
-const SHIP_MODEL_YAW = Math.PI;
+// Aligns the model's bow with +X (sim bow at yaw 0). The tanker mesh is baked
+// DIAGONALLY in model space: PCA of its vertices puts the hull axis at 39.8deg
+// off +X (after a 90deg base turn), superstructure aft — hence this odd angle.
+const SHIP_MODEL_YAW = Math.PI / 2 + (39.8 * Math.PI) / 180;
+// visual draft: sink the hull so the waterline sits above the propeller
+const SHIP_DRAFT = -0.55;
 
 class ModelBoundary extends Component {
   state = { failed: false };
@@ -57,7 +60,7 @@ function Ship({ stateRef }) {
     const s = stateRef.current;
     if (!s || !group.current) return;
     // sim meters -> scene units (1:10 for a comfortable view)
-    group.current.position.set(s.pos[0] / 10, 0, -s.pos[1] / 10);
+    group.current.position.set(s.pos[0] / 10, SHIP_DRAFT, -s.pos[1] / 10);
     group.current.rotation.y = s.yaw_rad;
   });
   return (
