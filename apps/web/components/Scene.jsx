@@ -1,6 +1,6 @@
 "use client";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { Environment, Sky, useGLTF, OrbitControls, Clouds, Cloud } from "@react-three/drei";
+import { Environment, Sky, useGLTF, OrbitControls, Clouds, Cloud, useProgress } from "@react-three/drei";
 import { Component, Suspense, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 
@@ -64,7 +64,7 @@ function Ship({ stateRef }) {
     group.current.rotation.y = s.yaw_rad;
   });
   return (
-    <group ref={group}>
+    <group ref={group} scale={1.25}>
       <ModelBoundary>
         <Suspense fallback={<FallbackHull />}>
           <ShipModel />
@@ -240,7 +240,7 @@ function Buoys({ world }) {
     <group key={b.id} position={[M(b.x), 0, -M(b.y)]}>
       <ModelBoundary fallback={<BuoyFallback color={b.color} />}>
         <Suspense fallback={<BuoyFallback color={b.color} />}>
-          <ObstacleModel url={b.color === "red" ? "/redbuoy.glb" : "/greenbuoy.glb"} scale={0.14} />
+          <ObstacleModel url={b.color === "red" ? "/redbuoy.glb" : "/greenbuoy.glb"} scale={0.06} />
         </Suspense>
       </ModelBoundary>
     </group>
@@ -250,7 +250,7 @@ function Buoys({ world }) {
 const OBSTACLE_MODELS = {
   island: "/island.glb",
   cargoship: "/ship.glb",
-  smallship: "/smallship.glb",
+  smallship: "/boat.glb",
   tanker: "/tanker.glb",
 };
 
@@ -279,8 +279,9 @@ function Obstacles({ world }) {
   return world.obstacles.map((ob) => (
     <group
       key={ob.id}
-      // islands sink slightly so their baked sea-skirt stays under the waves
-      position={[M(ob.x), ob.type === "island" ? -3.5 : 0, -M(ob.y)]}
+      // islands sink so their baked sea-skirt stays under the waves; ships get
+      // a visual draft so they don't float keel-dry
+      position={[M(ob.x), { island: -2.5, cargoship: -0.8 }[ob.type] ?? 0, -M(ob.y)]}
       rotation={[0, yawFromHeading(ob.heading_deg || 0), 0]}
     >
       <ModelBoundary fallback={null}>
@@ -305,16 +306,34 @@ function Traffic({ stateRef }) {
     <group ref={group} position={[M(500), 0, -M(-350)]}>
       <ModelBoundary fallback={null}>
         <Suspense fallback={null}>
-          <ObstacleModel url="/smallship.glb" />
+          <ObstacleModel url="/boat.glb" />
         </Suspense>
       </ModelBoundary>
     </group>
   );
 }
 
+// Progress overlay while glb assets stream in, so the empty ocean is not
+// mistaken for the finished scene.
+function AssetLoader() {
+  const { active, progress, item } = useProgress();
+  if (!active) return null;
+  const pct = Math.min(99, Math.round(progress));
+  return (
+    <div className="asset-loader">
+      <div className="asset-loader-label">LOADING VESSELS… {pct}%</div>
+      <div className="asset-loader-bar">
+        <div className="asset-loader-fill" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
 export default function Scene({ stateRef, viewRef, world, panMode }) {
   return (
-    <Canvas camera={{ position: [-26, 7, 0], fov: 55 }} style={{ position: "absolute", inset: 0 }}>
+    <>
+    <AssetLoader />
+    <Canvas camera={{ position: [-13.5, 6.5, 0], fov: 55 }} style={{ position: "absolute", inset: 0 }}>
       <Sky sunPosition={[100, 30, 100]} turbidity={6} />
       <Clouds material={THREE.MeshBasicMaterial}>
         <Cloud seed={2} segments={24} bounds={[70, 8, 45]} volume={38} position={[90, 55, -160]} color="#ffffff" opacity={0.5} speed={0.08} fade={60} />
@@ -332,5 +351,6 @@ export default function Scene({ stateRef, viewRef, world, panMode }) {
       <CameraRig stateRef={stateRef} viewRef={viewRef} panMode={panMode} />
       <Environment preset="sunset" />
     </Canvas>
+    </>
   );
 }

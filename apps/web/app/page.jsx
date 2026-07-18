@@ -5,6 +5,7 @@ import Instruments from "../components/Instruments";
 import Compass from "../components/Compass";
 import CommandBook from "../components/CommandBook";
 import Advisor from "../components/Advisor";
+import InfoPanel from "../components/InfoPanel";
 import { useNaviSocket } from "../lib/useNaviSocket";
 import { WavRecorder } from "../lib/recorder";
 
@@ -65,6 +66,7 @@ export default function Bridge() {
           </div>
         )}
 
+        <InfoPanel />
         <button
           className={`hand-toggle ${panMode ? "on" : ""}`}
           onClick={() => setPanMode(!panMode)}
