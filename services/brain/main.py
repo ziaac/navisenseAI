@@ -94,24 +94,30 @@ async def _handle_order(
 async def _log_attempt(
     session_id: str, transcript: str, result: dict, latency_ms: int, stt_ms: int
 ) -> None:
-    try:
-        import httpx
+    import httpx
 
-        async with httpx.AsyncClient(timeout=5.0, trust_env=False) as c:
-            await c.post(
-                config.TELEMETRY_URL,
-                json={
-                    "session_id": session_id,
-                    "transcript": transcript,
-                    "smcp_valid": result.get("smcp_valid"),
-                    "linguistic_feedback": result.get("linguistic_feedback"),
-                    "physics_action": result.get("physics_action"),
-                    "latency_ms": latency_ms,
-                    "stt_ms": stt_ms,
-                },
-            )
-    except Exception:
-        log.warning("telemetry post failed", exc_info=False)
+    payload = {
+        "session_id": session_id,
+        "transcript": transcript,
+        "smcp_valid": result.get("smcp_valid"),
+        "linguistic_feedback": result.get("linguistic_feedback"),
+        "physics_action": result.get("physics_action"),
+        "latency_ms": latency_ms,
+        "stt_ms": stt_ms,
+    }
+    # Best-effort with one retry: a transient timeout/5xx (e.g. the instance is
+    # saturated loading a model) should not silently drop the dashboard write.
+    for i in range(2):
+        try:
+            async with httpx.AsyncClient(timeout=10.0, trust_env=False) as c:
+                r = await c.post(config.TELEMETRY_URL, json=payload)
+            if r.status_code < 500:
+                return  # delivered (2xx) or a client error retrying won't fix (4xx)
+        except Exception:
+            pass
+        if i == 0:
+            await asyncio.sleep(0.5)
+    log.warning("telemetry post failed after retry", exc_info=False)
 
 
 @app.websocket("/session")
