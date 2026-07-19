@@ -17,8 +17,26 @@ export function resolveUrls() {
 // called so the UI can drop back to mock automatically.
 export function useNaviSocket(mode = "mock", onAiFail) {
   const wsRef = useRef(null);
+  const sessionIdRef = useRef(null);
   const onAiFailRef = useRef(onAiFail);
   onAiFailRef.current = onAiFail;
+
+  // Create (once) a training Session row via the web API so the brain can tag
+  // persisted attempts against it. Cached across reconnects and mode switches.
+  const ensureSession = useCallback(async () => {
+    if (sessionIdRef.current) return sessionIdRef.current;
+    try {
+      const res = await fetch("/api/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scenario: "channel_navigation" }),
+      });
+      if (res.ok) sessionIdRef.current = (await res.json()).id;
+    } catch {
+      /* dashboard telemetry is best-effort; never block the sim */
+    }
+    return sessionIdRef.current;
+  }, []);
   const [connected, setConnected] = useState(false);
   const [state, setState] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -41,6 +59,12 @@ export function useNaviSocket(mode = "mock", onAiFail) {
         everOpened = true;
         attempts = 0;
         setConnected(true);
+        // Tag this connection with a persisted Session so attempts reach /admin.
+        ensureSession().then((sid) => {
+          if (sid && alive && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: "init", session_id: sid }));
+          }
+        });
       };
       ws.onclose = () => {
         if (!alive) return;

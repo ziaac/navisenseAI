@@ -67,7 +67,9 @@ async def health():
     return {"ok": True, "sim_t": sim.get_state()["t"]}
 
 
-async def _handle_order(ws: WebSocket, transcript: str) -> None:
+async def _handle_order(
+    ws: WebSocket, transcript: str, session_id: str | None, stt_ms: int = 0
+) -> None:
     state = sim.get_state()
     t0 = time.perf_counter()
     if config.MOCK_MODE:
@@ -85,11 +87,13 @@ async def _handle_order(ws: WebSocket, transcript: str) -> None:
     if result.get("smcp_valid"):
         sim.set_action(pa["rudder_angle_deg"], pa["engine_thrust_pct"])
     await ws.send_json({"type": "evaluation", "latency_ms": latency_ms, **result})
-    if config.TELEMETRY_URL and config.SESSION_ID:
-        asyncio.create_task(_log_attempt(transcript, result, latency_ms))
+    if config.TELEMETRY_URL and session_id:
+        asyncio.create_task(_log_attempt(session_id, transcript, result, latency_ms, stt_ms))
 
 
-async def _log_attempt(transcript: str, result: dict, latency_ms: int) -> None:
+async def _log_attempt(
+    session_id: str, transcript: str, result: dict, latency_ms: int, stt_ms: int
+) -> None:
     try:
         import httpx
 
@@ -97,12 +101,13 @@ async def _log_attempt(transcript: str, result: dict, latency_ms: int) -> None:
             await c.post(
                 config.TELEMETRY_URL,
                 json={
-                    "session_id": config.SESSION_ID,
+                    "session_id": session_id,
                     "transcript": transcript,
                     "smcp_valid": result.get("smcp_valid"),
                     "linguistic_feedback": result.get("linguistic_feedback"),
                     "physics_action": result.get("physics_action"),
                     "latency_ms": latency_ms,
+                    "stt_ms": stt_ms,
                 },
             )
     except Exception:
@@ -112,6 +117,10 @@ async def _log_attempt(transcript: str, result: dict, latency_ms: int) -> None:
 @app.websocket("/session")
 async def session(ws: WebSocket):
     await ws.accept()
+    # Per-connection training session id (client sends it in an "init" message so
+    # attempts are persisted against the right Session row). Falls back to the
+    # optional SESSION_ID env for standalone/legacy setups.
+    session_id = config.SESSION_ID or None
     await ws.send_json({"type": "world", "buoys": world.BUOYS, "obstacles": world.OBSTACLES})
 
     async def stream_state():
@@ -133,7 +142,9 @@ async def session(ws: WebSocket):
         while True:
             msg = await ws.receive_json()
             mtype = msg.get("type")
-            if mtype == "audio":
+            if mtype == "init":
+                session_id = msg.get("session_id") or session_id
+            elif mtype == "audio":
                 wav = base64.b64decode(msg["wav_b64"])
                 t0 = time.perf_counter()
                 transcript = await asyncio.to_thread(_get_stt().transcribe, wav)
@@ -142,10 +153,10 @@ async def session(ws: WebSocket):
                     {"type": "transcript", "text": transcript, "stt_ms": stt_ms}
                 )
                 if transcript:
-                    await _handle_order(ws, transcript)
+                    await _handle_order(ws, transcript, session_id, stt_ms)
             elif mtype == "text":
                 await ws.send_json({"type": "transcript", "text": msg["text"], "stt_ms": 0})
-                await _handle_order(ws, msg["text"])
+                await _handle_order(ws, msg["text"], session_id, 0)
             elif mtype == "reset":
                 sim.reset()
     except WebSocketDisconnect:
