@@ -143,6 +143,43 @@ docker pull ghcr.io/ziaac/navisense-brain-cpu:1.0
 
 The ROCm GPU brain image is built from `docker/Dockerfile.rocm` on an AMD GPU host (see §4).
 
+### Run the published images locally (laptop / notebook, no GPU)
+
+The GPU is the primary execution path (§2/§4). For evaluators **without** AMD
+hardware, the CPU mock brain reproduces the full application pipeline (text
+orders + 3D simulation + instruments) on any laptop:
+
+```bash
+docker pull ghcr.io/ziaac/navisense-brain-cpu:1.0
+docker pull ghcr.io/ziaac/navisense-web:1.0
+
+docker run -d --name navisense-brain -p 8000:8000 ghcr.io/ziaac/navisense-brain-cpu:1.0
+docker run -d --name navisense-web   -p 3000:3000 ghcr.io/ziaac/navisense-web:1.0
+```
+
+Then open **`http://localhost:3000/?brain=ws://localhost:8000/session`** — the
+`?brain=` query points the UI at your local brain (the image's default brain URL
+is baked at build time). Type an order such as `Hard-a-port, ahead dead slow`
+and the ship maneuvers. (Voice / real LLM run in AI mode against a ROCm GPU
+brain; the mock covers typed SMCP orders.)
+
+**Optional — the `/admin` instructor dashboard** needs PostgreSQL:
+
+```bash
+docker network create navisense
+docker run -d --name navisense-db --network navisense \
+  -e POSTGRES_USER=navisense -e POSTGRES_PASSWORD=navisense -e POSTGRES_DB=navisense postgres:15
+docker rm -f navisense-brain navisense-web
+docker run -d --name navisense-brain --network navisense -p 8000:8000 \
+  -e TELEMETRY_URL=http://navisense-web:3000/api/attempts ghcr.io/ziaac/navisense-brain-cpu:1.0
+docker run -d --name navisense-web --network navisense -p 3000:3000 \
+  -e DATABASE_URL=postgresql://navisense:navisense@navisense-db:5432/navisense ghcr.io/ziaac/navisense-web:1.0
+docker exec navisense-web npx prisma db push
+docker exec navisense-web node prisma-schema/seed.mjs
+```
+
+Bridge: `http://localhost:3000/?brain=ws://localhost:8000/session` · Dashboard: `http://localhost:3000/admin`
+
 ## 6. Step-by-step reproduction of submitted results
 
 1. **Physics behavior:** run `python -m sim.loop` — verify acceleration to ~18.5 kn at Full Ahead and a stable ~1.2°/s hard-a-port turn with speed loss to ~8.6 kn.
