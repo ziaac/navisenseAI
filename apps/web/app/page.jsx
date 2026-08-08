@@ -53,8 +53,13 @@ export default function Bridge() {
     setOrder("");
   };
 
+  // Voice needs Whisper, which only the GPU/AI brain runs. In MOCK mode the
+  // audio would hit a brain with no STT and the mic would spin forever, so the
+  // control is disabled and the user is told to switch engines.
+  const voiceDisabled = mode !== "ai";
+
   const toggleMic = async () => {
-    if (sttBusy) return; // previous order still being transcribed/validated
+    if (sttBusy || voiceDisabled) return;
     if (!rec) {
       recorder.current = new WavRecorder();
       await recorder.current.start();
@@ -142,6 +147,14 @@ export default function Bridge() {
               <path d="M3 12a9 9 0 1 0 3-6.7" /><path d="M3 4v5h5" />
             </svg>
           </button>
+          <a
+            className="rail-btn" href="/admin" target="_blank" rel="noopener noreferrer"
+            title="Instructor dashboard — live training log (sessions & attempts)" aria-label="Instructor dashboard"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 3v18h18" /><rect x="7" y="11" width="3" height="6" /><rect x="12.5" y="7" width="3" height="10" /><rect x="18" y="13" width="3" height="4" />
+            </svg>
+          </a>
         </div>
 
         <Advisor advisory={advisory} onUse={(p) => setOrder(p)} />
@@ -154,10 +167,10 @@ export default function Bridge() {
           <form className="orderbar" onSubmit={submit}>
             <button
               type="button"
-              className={`mic ${rec ? "rec" : ""} ${sttBusy ? "busy" : ""}`}
+              className={`mic ${rec ? "rec" : ""} ${sttBusy ? "busy" : ""} ${voiceDisabled ? "off" : ""}`}
               onClick={toggleMic}
-              disabled={sttBusy}
-              title={sttBusy ? "Processing your order…" : rec ? "Recording — click to stop & send" : "Speak your order — click to start"}
+              disabled={sttBusy || voiceDisabled}
+              title={voiceDisabled ? "Voice input runs on the GPU — switch to AI MODE to use the microphone" : sttBusy ? "Processing your order…" : rec ? "Recording — click to stop & send" : "Speak your order — click to start"}
             >
               {sttBusy ? (
                 <span className="mic-spinner" />

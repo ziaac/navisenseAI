@@ -136,6 +136,11 @@ html, body { height: 100%; background: #06121f; color: #e6f0f7; font-family: "Se
 @keyframes pulse { 50% { opacity: 0.6; } }
 .orderbar button.mic.busy { border-color: #ffd166; cursor: wait; }
 .orderbar button:disabled { opacity: 0.75; cursor: wait; }
+/* voice unavailable in mock mode: dimmed, not spinning */
+.orderbar button.mic.off, .orderbar button.mic.off:hover {
+  opacity: 0.4; cursor: not-allowed;
+  background: rgba(19, 42, 63, 0.4); border-color: rgba(125, 180, 220, 0.18);
+}
 .mic-spinner {
   width: 24px; height: 24px; border-radius: 50%;
   border: 3px solid rgba(255, 209, 102, 0.25); border-top-color: #ffd166;
@@ -155,6 +160,7 @@ html, body { height: 100%; background: #06121f; color: #e6f0f7; font-family: "Se
   display: flex; align-items: center; justify-content: center;
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   transition: background 0.15s, border-color 0.15s;
+  text-decoration: none;
 }
 .rail-btn:hover { background: rgba(20, 42, 63, 0.8); }
 .rail-btn svg { width: 22px; height: 22px; }

@@ -1,7 +1,7 @@
 "use client";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Environment, Sky, useGLTF, OrbitControls, Clouds, Cloud, useProgress } from "@react-three/drei";
-import { Component, Suspense, useEffect, useMemo, useRef } from "react";
+import { Component, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 
 const SHIP_GLB = "/tanker.glb"; // player vessel (oil tanker)
@@ -339,10 +339,40 @@ function AssetLoader() {
 }
 
 export default function Scene({ stateRef, viewRef, world, panMode, resetTick }) {
+  // A WebGL context is dropped when the tab is backgrounded for a while or the
+  // page is restored from the bfcache (a revisit), which left a black canvas
+  // until the user hit Reset. Remounting the Canvas gives it a fresh context and
+  // brings the scene back on its own.
+  const [glKey, setGlKey] = useState(0);
+  const pendingRef = useRef(false);
+  useEffect(() => {
+    const remount = () => setGlKey((k) => k + 1);
+    const onPageShow = (e) => { if (e.persisted) remount(); };       // bfcache revisit
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && pendingRef.current) {
+        pendingRef.current = false;
+        remount();
+      }
+    };
+    window.addEventListener("pageshow", onPageShow);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("pageshow", onPageShow);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, []);
+  const handleCreated = useCallback(({ gl }) => {
+    gl.domElement.addEventListener("webglcontextlost", (e) => {
+      e.preventDefault(); // let the browser fire contextrestored instead of giving up
+      // remount now if visible, otherwise defer until the tab is shown again
+      if (document.visibilityState === "visible") setGlKey((k) => k + 1);
+      else pendingRef.current = true;
+    }, { once: true });
+  }, []);
   return (
     <>
     <AssetLoader />
-    <Canvas camera={{ position: [-13.5, 6.5, 0], fov: 55 }} style={{ position: "absolute", inset: 0 }}>
+    <Canvas key={glKey} onCreated={handleCreated} camera={{ position: [-13.5, 6.5, 0], fov: 55 }} style={{ position: "absolute", inset: 0 }}>
       <Sky sunPosition={[100, 30, 100]} turbidity={6} />
       <Clouds material={THREE.MeshBasicMaterial}>
         <Cloud seed={2} segments={24} bounds={[70, 8, 45]} volume={38} position={[90, 55, -160]} color="#ffffff" opacity={0.5} speed={0.08} fade={60} />
